@@ -26,9 +26,20 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.DateFormat;
+import java.util.Base64;
 import java.util.Date;
+import java.util.Scanner;
 import java.util.TimeZone;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FilenameFilter;
+
 
 public class WebWorker implements Runnable
 {
@@ -50,17 +61,45 @@ public class WebWorker implements Runnable
 	 **/
 	public void run()
 	{
+		String reqFileName = new String();
 		System.err.println("Handling connection...");
+		
 		try
 		{
 			InputStream is = socket.getInputStream();
 			OutputStream os = socket.getOutputStream();
-			readHTTPRequest(is);
-			writeHTTPHeader(os, "text/html");
-			writeContent(os);
-			os.flush();
-			socket.close();
+			reqFileName = readHTTPRequest(is);
+			File reqFile = null;
+			String directory = System.getProperty("user.dir");
+			//File dir = new File(directory);
+			//File[] f = dir.listFiles(new FilenameFilter() {
+			
+			    	
+						
+			if (reqFileName.isEmpty()) {
+				writeHTTPHeader(os, "text/html");
+				writeContent(os);
+				os.flush();
+				socket.close();
+			}
+			
+			else  {
+				reqFile = new File(reqFileName);
+				if (reqFile.exists()) {
+					writeHTTPHeader(os, "text/html");
+					writeContent(os, reqFile);
+					os.flush();
+					socket.close();
+				}
+				else {
+					writeHTTPHeader404(os, "text/html");
+					writeContent(os, reqFile);
+					os.flush();
+					socket.close();
+				}
+			}
 		}
+		
 		catch (Exception e)
 		{
 			System.err.println("Output error: " + e);
@@ -69,21 +108,26 @@ public class WebWorker implements Runnable
 		return;
 	}
 
+	
+
 	/**
 	 * Read the HTTP request header.
 	 **/
-	private void readHTTPRequest(InputStream is)
-	{
-		String line;
-		BufferedReader r = new BufferedReader(new InputStreamReader(is));
-		while (true)
-		{
-			try
-			{
-				while (!r.ready())
+	private String readHTTPRequest(InputStream is) {
+		String line = new String();
+		String reqFile = new String();
+		
+				
+		BufferedReader r = new BufferedReader (new InputStreamReader(is));
+		while (true) {
+			try {
+				while(!r.ready())
 					Thread.sleep(1);
 				line = r.readLine();
 				System.err.println("Request line: (" + line + ")");
+				if (line.startsWith("GET")) {
+					reqFile = line.substring(5, line.length() - 9);
+				}
 				if (line.length() == 0)
 					break;
 			}
@@ -93,9 +137,9 @@ public class WebWorker implements Runnable
 				break;
 			}
 		}
-		return;
+		return reqFile;
 	}
-
+	
 	/**
 	 * Write the HTTP header lines to the client network connection.
 	 * 
@@ -113,7 +157,7 @@ public class WebWorker implements Runnable
 		os.write("Date: ".getBytes());
 		os.write((df.format(d)).getBytes());
 		os.write("\n".getBytes());
-		os.write("Server: Jon's very own server\n".getBytes());
+		os.write("Server: Danielle's Server\n".getBytes());
 		// os.write("Last-Modified: Wed, 08 Jan 2003 23:11:55 GMT\n".getBytes());
 		// os.write("Content-Length: 438\n".getBytes());
 		os.write("Connection: close\n".getBytes());
@@ -122,19 +166,92 @@ public class WebWorker implements Runnable
 		os.write("\n\n".getBytes()); // HTTP header ends with 2 newlines
 		return;
 	}
-
+	
 	/**
-	 * Write the data content to the client network connection. This MUST be done after the HTTP
-	 * header has been written out.
+	 * Write the 404 HTTP header lines to the client network connection.
+	 * 
+	 * @param os
+	 *          is the OutputStream object to write to
+	 * @param contentType
+	 *          is the string MIME content type (e.g. "text/html")
+	 **/
+	private void writeHTTPHeader404(OutputStream os, String contentType) throws Exception
+	{
+		Date d = new Date();
+		DateFormat df = DateFormat.getDateTimeInstance();
+		df.setTimeZone(TimeZone.getTimeZone("GMT"));
+		os.write("HTTP/1.1 404 Not Found\n".getBytes());
+		os.write("Date: ".getBytes());
+		os.write((df.format(d)).getBytes());
+		os.write("\n".getBytes());
+		os.write("Server: Danielle's Server\n".getBytes());
+		// os.write("Last-Modified: Wed, 08 Jan 2003 23:11:55 GMT\n".getBytes());
+		// os.write("Content-Length: 438\n".getBytes());
+		os.write("Connection: close\n".getBytes());
+		os.write("Content-Type: ".getBytes());
+		os.write(contentType.getBytes());
+		os.write("\n\n".getBytes()); // HTTP header ends with 2 newlines
+		return;
+	}
+	
+	/**
+	 * Write the data content to the client network connection when file name is provided. 
+	 * This MUST be done after the HTTP header has been written out.
+	 * 
+	 * @param os
+	 *          is the OutputStream object to write to
+	 * @param File
+	 * 			is the File object to access
+	 **/
+	private void writeContent(OutputStream os, File reqFile) throws Exception
+	{
+		os.write("<html><head></head><body>\n".getBytes());
+		os.write("</body></html>\n".getBytes());
+		
+		try {
+			//Create date object
+			Date d = new Date();
+			DateFormat df = DateFormat.getDateInstance();
+			
+			
+			//replace tags 
+			Scanner scnr = new Scanner(reqFile);
+			String replacementDate = df.format(d);
+			String server = "Danielle's Server";
+			String contents = "";
+			
+			while (scnr.hasNextLine()) {
+				contents = scnr.nextLine();
+				contents = contents.replaceAll("<cs371date>", replacementDate);
+				contents = contents.replaceAll("<cs371server>", server);
+				os.write(contents.getBytes());
+			
+			}
+			scnr.close(); 
+		}
+		
+		//display 404 Not Found when file not found
+		catch (Exception e) {
+			os.write("<h3>404 Not Found</h3>".getBytes());
+		}
+		
+		
+	}
+	
+	/**
+	 * Write the data content to the client network connection when file name is not provided. 
+	 * This MUST be done after the HTTP header has been written out.
 	 * 
 	 * @param os
 	 *          is the OutputStream object to write to
 	 **/
-	private void writeContent(OutputStream os) throws Exception
+	private void writeContent(OutputStream os) throws Exception 
 	{
 		os.write("<html><head></head><body>\n".getBytes());
 		os.write("<h3>My web server works!</h3>\n".getBytes());
 		os.write("</body></html>\n".getBytes());
 	}
+	
+	
 
 } // end class
