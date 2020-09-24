@@ -26,19 +26,12 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.text.DateFormat;
-import java.util.Base64;
 import java.util.Date;
 import java.util.Scanner;
 import java.util.TimeZone;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FilenameFilter;
+
 
 
 public class WebWorker implements Runnable
@@ -70,12 +63,7 @@ public class WebWorker implements Runnable
 			OutputStream os = socket.getOutputStream();
 			reqFileName = readHTTPRequest(is);
 			File reqFile = null;
-			String directory = System.getProperty("user.dir");
-			//File dir = new File(directory);
-			//File[] f = dir.listFiles(new FilenameFilter() {
-			
-			    	
-						
+									
 			if (reqFileName.isEmpty()) {
 				writeHTTPHeader(os, "text/html");
 				writeContent(os);
