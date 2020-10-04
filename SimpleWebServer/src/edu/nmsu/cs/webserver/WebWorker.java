@@ -1,5 +1,7 @@
 package edu.nmsu.cs.webserver;
 
+
+
 /**
  * Web worker: an object of this class executes in its own new thread to receive and respond to a
  * single HTTP request. After the constructor the object executes on its "run" method, and leaves
@@ -31,6 +33,7 @@ import java.util.Date;
 import java.util.Scanner;
 import java.util.TimeZone;
 import java.io.File;
+import java.io.FileInputStream;
 
 
 
@@ -56,6 +59,7 @@ public class WebWorker implements Runnable
 	{
 		String reqFileName = new String();
 		System.err.println("Handling connection...");
+		String type = new String();
 		
 		try
 		{
@@ -63,9 +67,11 @@ public class WebWorker implements Runnable
 			OutputStream os = socket.getOutputStream();
 			reqFileName = readHTTPRequest(is);
 			File reqFile = null;
-									
+			type = contentType(reqFileName);
+			System.err.println(type);
+			
 			if (reqFileName.isEmpty()) {
-				writeHTTPHeader(os, "text/html");
+				writeHTTPHeader(os, type); 
 				writeContent(os);
 				os.flush();
 				socket.close();
@@ -74,13 +80,20 @@ public class WebWorker implements Runnable
 			else  {
 				reqFile = new File(reqFileName);
 				if (reqFile.exists()) {
-					writeHTTPHeader(os, "text/html");
-					writeContent(os, reqFile);
+					
+					writeHTTPHeader(os, type); 
+					if (type.equals("text/html")) {
+						writeContent(os, reqFile);
+					}
+					else {
+						writeContentImage(os, reqFile);
+					}
 					os.flush();
 					socket.close();
+					
 				}
 				else {
-					writeHTTPHeader404(os, "text/html");
+					writeHTTPHeader404(os, type); 
 					writeContent(os, reqFile);
 					os.flush();
 					socket.close();
@@ -193,15 +206,12 @@ public class WebWorker implements Runnable
 	 **/
 	private void writeContent(OutputStream os, File reqFile) throws Exception
 	{
-		os.write("<html><head></head><body>\n".getBytes());
-		os.write("</body></html>\n".getBytes());
 		
 		try {
 			//Create date object
 			Date d = new Date();
 			DateFormat df = DateFormat.getDateInstance();
-			
-			
+									
 			//replace tags 
 			Scanner scnr = new Scanner(reqFile);
 			String replacementDate = df.format(d);
@@ -209,6 +219,8 @@ public class WebWorker implements Runnable
 			String contents = "";
 			
 			while (scnr.hasNextLine()) {
+				//os.write("<html><head></head><body>\n".getBytes());
+				//os.write("</body></html>\n".getBytes());
 				contents = scnr.nextLine();
 				contents = contents.replaceAll("<cs371date>", replacementDate);
 				contents = contents.replaceAll("<cs371server>", server);
@@ -216,15 +228,49 @@ public class WebWorker implements Runnable
 			
 			}
 			scnr.close(); 
+					
 		}
 		
 		//display 404 Not Found when file not found
 		catch (Exception e) {
+			os.write("<html><head></head><body>\n".getBytes());
+			os.write("</body></html>\n".getBytes());
 			os.write("<h3>404 Not Found</h3>".getBytes());
 		}
 		
 		
 	}
+	
+	private void writeContentImage(OutputStream os, File reqFile) throws Exception
+	{
+		try {
+						
+			FileInputStream fis = new FileInputStream(reqFile);
+						
+			byte[] bytes = new byte[1024];
+			int bytesRead;
+			
+			while ((bytesRead = fis.read(bytes)) != -1) {
+				os.write(bytes, 0, bytes.length);
+			}
+				
+			fis.close();
+			
+		}
+		
+		//display 404 Not Found when file not found
+		catch (Exception e) {
+						
+				os.write("<html><head></head><body>\n".getBytes());
+				os.write("</body></html>\n".getBytes());
+				os.write("<h3>404 Not Found</h3>".getBytes());
+		
+			}
+			 
+		}
+		
+		
+	
 	
 	/**
 	 * Write the data content to the client network connection when file name is not provided. 
@@ -239,6 +285,32 @@ public class WebWorker implements Runnable
 		os.write("<h3>My web server works!</h3>\n".getBytes());
 		os.write("</body></html>\n".getBytes());
 	}
+	
+	private String contentType(String fileName) 
+	{
+		
+		String reqFileName = new String();
+		String outputType = new String();
+		reqFileName = fileName;
+				
+		if (reqFileName.endsWith("txt") || reqFileName.endsWith("html")) {
+			outputType = "text/html";
+		}
+		if (reqFileName.endsWith(".gif")) {
+			outputType = "image/gif";
+		}
+		if (reqFileName.endsWith(".jpg")) {
+			outputType = "image/jpeg";
+		}
+		if (reqFileName.endsWith(".png")) {
+			outputType = "image/png";
+		}
+				
+		
+		return outputType;		
+	}
+	
+	
 	
 	
 
